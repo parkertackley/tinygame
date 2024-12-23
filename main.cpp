@@ -5,7 +5,7 @@
 #include <cassert>
 
 uint32_t pack_color(const uint8_t r, const uint8_t g, const uint8_t b, const uint8_t a = 255) {
-    return (a << 24) + (b << 24) + (g << 8) + r;
+    return (a << 24) + (b << 16) + (g << 8) + r;
 }
 
 void unpack_color(const uint32_t &color, uint8_t &r, uint8_t &g, uint8_t &b, uint8_t &a) {
@@ -47,6 +47,7 @@ int main() {
     const size_t win_w = 512, win_h = 512;
     std::vector<uint32_t> framebuffer(win_w * win_h, 255);
 
+    // setting the map boundaries 
     const size_t map_w = 16, map_h = 16;
     const char map[] = "0000222222220000"\
                        "0              0"\
@@ -65,7 +66,9 @@ int main() {
                        "0              0"\
                        "0000222222220000";
     assert(sizeof(map) == map_w * map_h + 1); // assert the map size is == to the calculation, +1 for null terminator in a string
+    float player_x = 3.4556, player_y = 2.345;
 
+    // fill .ppm with color gradient
     for(size_t j = 0; j < win_h; ++j) {
         for(size_t i = 0; i < win_w; ++i) {
             uint8_t r = 255 * j / float(win_h);
@@ -75,17 +78,20 @@ int main() {
         }
     }
 
+    // draws map
     const size_t rect_w = win_w / map_w;
     const size_t rect_h = win_h / map_h;
     for(size_t j = 0; j < map_h; ++j) {
         for(size_t i = 0; i < map_w; ++i) {
-            if(map[i + j * map_w] == ' ')
+            if(map[i + j * map_w] == ' ') // skip empty spots
                 continue;
             size_t rect_x = i * rect_w;
             size_t rect_y = j * rect_h;
             draw_rectangle(framebuffer, win_w, win_h, rect_x, rect_y, rect_w, rect_h, pack_color(0, 255, 255));
         }
     }
+
+    draw_rectangle(framebuffer, win_w, win_h, player_x * rect_w, player_y * rect_h, 5, 5, pack_color(255, 255, 255));
 
     drop_ppm_image("./out.ppm", framebuffer, win_w, win_h);
 
