@@ -1,0 +1,6 @@
+# directories
+.vscode/
+
+# files
+*.ppm
+main
