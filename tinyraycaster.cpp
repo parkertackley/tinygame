@@ -13,21 +13,29 @@
 #include "utils.h"
 #include "player.h"
 #include "framebuffer.h"
+#include "sprite.h"
 #include "textures.h"
 
-int wall_x_texcoord(const float x, const float y, Texture &tex_walls) {
-    float hitx = x - floor(x + 0.5);                 // hitx and hity contain signed fractional parts of x and y
-    float hity = y - floor(y + 0.5);                 // they vary between -0.5 and +0.5 and one of them is close to 0
-    int tex = hitx * tex_walls.size;
-    if(std::abs(hity) > std::abs(hitx))             // determine if we hit vert or horizontal wall
-        tex = hity * tex_walls.size;
+int wall_x_texcoord(const float hitx, const float hity, Texture &tex_walls) {
+    float x = hitx - floor(hitx + 0.5);         // hitx and hity contain signed fractional parts of x and y
+    float y = hity - floor(hity + 0.5);         // they vary between -0.5 and +0.5 and one of them is close to 0
+    int tex = x * tex_walls.size;
+    if(std::abs(y) > std::abs(x))           // determine if we hit vert or horizontal wall
+        tex = y * tex_walls.size;
     if(tex < 0)
         tex += tex_walls.size;
     assert(tex >= 0 && tex < (int)tex_walls.size);
     return tex;
 }
 
-void render(FrameBuffer &fb, Map &map, Player &player, Texture &tex_walls) {
+void map_show_sprite(Sprite &sprite, FrameBuffer &fb, Map &map) {
+    const size_t rect_w = fb.w / (map.w * 2);
+    const size_t rect_h = fb.h / map.h;
+    fb.draw_rectangle(sprite.x * rect_w - 3, sprite.y * rect_h - 3, 6, 6, pack_color(255, 0, 0));
+
+}
+
+void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &sprites, Texture &tex_walls, Texture &tex_monst) {
     fb.clear(pack_color(255, 255, 255));
 
     // draws map
@@ -58,7 +66,8 @@ void render(FrameBuffer &fb, Map &map, Player &player, Texture &tex_walls) {
 
             size_t texid = map.get(x, y);               // ray touches wayy so draw the vert column
             assert(texid < tex_walls.count);
-            size_t column_height = fb.h / (t * cos(angle - player.a));
+            float dist = t * cos(angle - player.a);
+            size_t column_height = fb.h / dist;
             int x_texcoord = wall_x_texcoord(x, y, tex_walls);
             std::vector<uint32_t> column = tex_walls.get_scaled_column(texid, x_texcoord, column_height);
             int pix_x = i + fb.w / 2;
@@ -72,6 +81,9 @@ void render(FrameBuffer &fb, Map &map, Player &player, Texture &tex_walls) {
         }   //ray marching loop
     }       // fov ray sweeping
 
+    for(size_t i = 0; i < sprites.size(); ++i) {
+        map_show_sprite(sprites[i], fb, map);
+    }
 
 }
 
@@ -81,20 +93,17 @@ int main() {
     FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};
     Player player {3.456, 2.345, 1.523, M_PI / 3.0};
     Map map;
-    Texture tex_walls("walltext.png");
-    if(!tex_walls.count) {
-        std::cerr << "Failed to load wall textures!" << std::endl;
+    Texture tex_walls("textures/walltext.png");
+    Texture tex_monst("textures/monsters.png");
+    if(!tex_walls.count || !tex_monst.count) {
+        std::cerr << "Failed to load textures!" << std::endl;
         return -1;
     }
 
-    for(size_t frame = 0; frame < 360; ++frame) {
-        std::stringstream ss;
-        ss << "frames/" << std::setfill('0') << std::setw(5) << frame << ".ppm";
-        player.a += 2 * M_PI / 360;
+    std::vector<Sprite> sprites{ {1.834, 8.756, 0}, {5.323, 5.365, 1}, {4.123, 10.265, 1}};
 
-        render(fb, map, player, tex_walls);
-        drop_ppm_image(ss.str(), fb.img, fb.w, fb.h);
-    }
+    render(fb, map, player, sprites, tex_walls, tex_monst);
+    drop_ppm_image("frames/out.ppm", fb.img, fb.w, fb.h);
 
     return 0;
 
