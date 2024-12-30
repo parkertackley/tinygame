@@ -1,5 +1,6 @@
 # directories
 .vscode/
+.DS_store
 
 # files
 *.ppm
