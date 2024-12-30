@@ -93,8 +93,8 @@ int main() {
     FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};
     Player player {3.456, 2.345, 1.523, M_PI / 3.0};
     Map map;
-    Texture tex_walls("textures/walltext.png");
-    Texture tex_monst("textures/monsters.png");
+    Texture tex_walls("../textures/walltext.png");
+    Texture tex_monst("../textures/monsters.png");
     if(!tex_walls.count || !tex_monst.count) {
         std::cerr << "Failed to load textures!" << std::endl;
         return -1;
@@ -103,7 +103,7 @@ int main() {
     std::vector<Sprite> sprites{ {1.834, 8.756, 0}, {5.323, 5.365, 1}, {4.123, 10.265, 1}};
 
     render(fb, map, player, sprites, tex_walls, tex_monst);
-    drop_ppm_image("frames/out.ppm", fb.img, fb.w, fb.h);
+    drop_ppm_image("../frames/out.ppm", fb.img, fb.w, fb.h);
 
     return 0;
 
