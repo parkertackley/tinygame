@@ -1,3 +1,11 @@
 A tiny raycaster based fps game.
 
-Based off of Dmitry Sokolov's "tiny*" repositories
+1. Run the make command
+```make
+make
+```
+
+2. Run the tinyraycaster file
+```
+./tinyraycaster
+```
