@@ -35,7 +35,7 @@ void map_show_sprite(Sprite &sprite, FrameBuffer &fb, Map &map) {
 
 }
 
-void draw_sprite(Sprite &sprite, FrameBuffer &fb, Player &player, Texture &tex_sprites) {
+void draw_sprite(Sprite &sprite, std::vector<float> &depth_buffer, FrameBuffer &fb, Player &player, Texture &tex_sprites) {
     // dis from player to the sprite in radians
     float sprite_dir = atan2(sprite.y - player.y, sprite.x - player.x);
 
@@ -51,12 +51,16 @@ void draw_sprite(Sprite &sprite, FrameBuffer &fb, Player &player, Texture &tex_s
     int v_offset = fb.h / 2 - sprite_screen_size / 2;
 
     for(size_t i = 0; i < sprite_screen_size; ++i) {
-        if(h_offset + i < 0 || h_offset + i >= fb.w / 2)
+        if(depth_buffer[h_offset + i] < sprite_dist)
             continue;
         for(size_t j = 0; j < sprite_screen_size; ++j) {
-            if(v_offset + j < 0 || v_offset + j >= fb.h)
+            if(v_offset + int(j) < 0 || v_offset + j >= fb.h)
                 continue;
-            fb.set_pixel(fb.w / 2 + h_offset + i, v_offset + j, pack_color(0, 0, 0));
+            uint32_t color = tex_sprites.get(i * tex_sprites.size / sprite_screen_size, j * tex_sprites.size / sprite_screen_size, sprite.tex_id);
+            uint8_t r, g, b, a;
+            unpack_color(color, r, g, b, a);
+            if(a > 128)
+                fb.set_pixel(fb.w / 2 + h_offset + i, v_offset + j, color);
         }
     }
 }
@@ -80,6 +84,7 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
     }
 
     // raycasting loop
+    std::vector<float> depth_buffer(fb.w / 2, 1e3);
     for(size_t i = 0; i < fb.w / 2; ++i) {              // draw the visibility cone and the 3d view
         float angle = player.a - player.fov / 2 + player.fov * i / float(fb.w / 2);
         for(float t = 0; t < 20; t += 0.01) {
@@ -93,6 +98,7 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
             size_t texid = map.get(x, y);               // ray touches wayy so draw the vert column
             assert(texid < tex_walls.count);
             float dist = t * cos(angle - player.a);
+            depth_buffer[i] = dist;
             size_t column_height = fb.h / dist;
             int x_texcoord = wall_x_texcoord(x, y, tex_walls);
             std::vector<uint32_t> column = tex_walls.get_scaled_column(texid, x_texcoord, column_height);
@@ -109,7 +115,7 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
 
     for(size_t i = 0; i < sprites.size(); ++i) {
         map_show_sprite(sprites[i], fb, map);
-        draw_sprite(sprites[i], fb, player, tex_monst);
+        draw_sprite(sprites[i], depth_buffer, fb, player, tex_monst);
     }
 
 }
