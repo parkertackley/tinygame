@@ -35,6 +35,32 @@ void map_show_sprite(Sprite &sprite, FrameBuffer &fb, Map &map) {
 
 }
 
+void draw_sprite(Sprite &sprite, FrameBuffer &fb, Player &player, Texture &tex_sprites) {
+    // dis from player to the sprite in radians
+    float sprite_dir = atan2(sprite.y - player.y, sprite.x - player.x);
+
+    // remove unnecessary perios from the relative direction
+    while(sprite_dir - player.a > M_PI) 
+        sprite_dir -= 2 * M_PI;
+    while(sprite_dir - player.a < -M_PI)
+        sprite_dir += 2 * M_PI;
+
+    float sprite_dist = std::sqrt(pow(player.x - sprite.x, 2) + pow(player.y - sprite.y, 2));    // distance from the player to the sprite
+    size_t sprite_screen_size = std::min(1000, static_cast<int>(fb.h / sprite_dist));   // screen sprite dist
+    int h_offset = (sprite_dir - player.a) / player.fov * (fb.w / 2) + (fb.w / 2) / 2 - tex_sprites.size / 2;
+    int v_offset = fb.h / 2 - sprite_screen_size / 2;
+
+    for(size_t i = 0; i < sprite_screen_size; ++i) {
+        if(h_offset + i < 0 || h_offset + i >= fb.w / 2)
+            continue;
+        for(size_t j = 0; j < sprite_screen_size; ++j) {
+            if(v_offset + j < 0 || v_offset + j >= fb.h)
+                continue;
+            fb.set_pixel(fb.w / 2 + h_offset + i, v_offset + j, pack_color(0, 0, 0));
+        }
+    }
+}
+
 void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &sprites, Texture &tex_walls, Texture &tex_monst) {
     fb.clear(pack_color(255, 255, 255));
 
@@ -83,12 +109,13 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
 
     for(size_t i = 0; i < sprites.size(); ++i) {
         map_show_sprite(sprites[i], fb, map);
+        draw_sprite(sprites[i], fb, player, tex_monst);
     }
 
 }
 
 int main() {
-    std::filesystem::create_directory("frames");
+    std::filesystem::create_directory("../frames");
     
     FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};
     Player player {3.456, 2.345, 1.523, M_PI / 3.0};
