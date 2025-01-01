@@ -83,7 +83,6 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
             fb.draw_rectangle(rect_x, rect_y, rect_w, rect_h, tex_walls.get(0, 0, texid));
         }
     }
-    
     // raycasting loop
     std::vector<float> depth_buffer(fb.w / 2, 1e3);
     for(size_t i = 0; i < fb.w / 2; ++i) {              // draw the visibility cone and the 3d view
@@ -114,13 +113,13 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
         }   //ray marching loop
     }       // fov ray sweeping
 
-    for(size_t i = 0; 9 < sprites.size(); ++i) {
+    for(size_t i = 0; i < sprites.size(); ++i) {    // update the distances from the player to each sprite
         sprites[i].player_dist = std::sqrt(pow(player.x - sprites[i].x, 2) + pow(player.y - sprites[i].y, 2));
     }
 
-    std::sort(sprites.begin(), sprites.end());
+    std::sort(sprites.begin(), sprites.end());  // sort it from farthest to closest
 
-    for(size_t i = 0; i < sprites.size(); ++i) {
+    for(size_t i = 0; i < sprites.size(); ++i) {    // draw the sprites
         map_show_sprite(sprites[i], fb, map);
         draw_sprite(sprites[i], depth_buffer, fb, player, tex_monst);
     }
@@ -140,7 +139,7 @@ int main() {
         return -1;
     }
 
-    std::vector<Sprite> sprites{ {1.834, 8.756, 2, 0}, {5.323, 5.365, 1, 0}, {4.123, 10.265, 1, 0}};
+    std::vector<Sprite> sprites{{3.523, 3.812, 2, 0}, {1.834, 8.756, 2, 0}, {5.323, 5.365, 1, 0}, {4.123, 10.265, 1, 0}};
 
     render(fb, map, player, sprites, tex_walls, tex_monst);
     drop_ppm_image("../frames/out.ppm", fb.img, fb.w, fb.h);
