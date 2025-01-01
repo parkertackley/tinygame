@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <algorithm>
 
 #include "map.h"
 #include "utils.h"
@@ -46,12 +47,12 @@ void draw_sprite(Sprite &sprite, std::vector<float> &depth_buffer, FrameBuffer &
         sprite_dir += 2 * M_PI;
 
     float sprite_dist = std::sqrt(pow(player.x - sprite.x, 2) + pow(player.y - sprite.y, 2));    // distance from the player to the sprite
-    size_t sprite_screen_size = std::min(1000, static_cast<int>(fb.h / sprite_dist));   // screen sprite dist
+    size_t sprite_screen_size = std::min(1000, static_cast<int>(fb.h / sprite.player_dist));   // screen sprite dist
     int h_offset = (sprite_dir - player.a) / player.fov * (fb.w / 2) + (fb.w / 2) / 2 - tex_sprites.size / 2;
     int v_offset = fb.h / 2 - sprite_screen_size / 2;
 
     for(size_t i = 0; i < sprite_screen_size; ++i) {
-        if(depth_buffer[h_offset + i] < sprite_dist)
+        if(depth_buffer[h_offset + i] < sprite.player_dist)
             continue;
         for(size_t j = 0; j < sprite_screen_size; ++j) {
             if(v_offset + int(j) < 0 || v_offset + j >= fb.h)
@@ -82,7 +83,7 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
             fb.draw_rectangle(rect_x, rect_y, rect_w, rect_h, tex_walls.get(0, 0, texid));
         }
     }
-
+    
     // raycasting loop
     std::vector<float> depth_buffer(fb.w / 2, 1e3);
     for(size_t i = 0; i < fb.w / 2; ++i) {              // draw the visibility cone and the 3d view
@@ -113,6 +114,12 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
         }   //ray marching loop
     }       // fov ray sweeping
 
+    for(size_t i = 0; 9 < sprites.size(); ++i) {
+        sprites[i].player_dist = std::sqrt(pow(player.x - sprites[i].x, 2) + pow(player.y - sprites[i].y, 2));
+    }
+
+    std::sort(sprites.begin(), sprites.end());
+
     for(size_t i = 0; i < sprites.size(); ++i) {
         map_show_sprite(sprites[i], fb, map);
         draw_sprite(sprites[i], depth_buffer, fb, player, tex_monst);
@@ -122,7 +129,7 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
 
 int main() {
     std::filesystem::create_directory("../frames");
-    
+
     FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};
     Player player {3.456, 2.345, 1.523, M_PI / 3.0};
     Map map;
@@ -133,7 +140,7 @@ int main() {
         return -1;
     }
 
-    std::vector<Sprite> sprites{ {1.834, 8.756, 0}, {5.323, 5.365, 1}, {4.123, 10.265, 1}};
+    std::vector<Sprite> sprites{ {1.834, 8.756, 2, 0}, {5.323, 5.365, 1, 0}, {4.123, 10.265, 1, 0}};
 
     render(fb, map, player, sprites, tex_walls, tex_monst);
     drop_ppm_image("../frames/out.ppm", fb.img, fb.w, fb.h);

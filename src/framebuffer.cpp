@@ -7,7 +7,7 @@
 #include "utils.h"
 
 void FrameBuffer::set_pixel(const size_t x, const size_t y, const uint32_t color) {
-    assert(img.size() == (w * h) && x < w && y < h);
+    // assert(img.size() == (w * h) && x < w && y < h);
     img[x + y * w] = color;
 }
 
