@@ -18,16 +18,20 @@
 #include "textures.h"
 
 int wall_x_texcoord(const float hitx, const float hity, Texture &tex_walls) {
-    float x = hitx - floor(hitx + 0.5);         // hitx and hity contain signed fractional parts of x and y
-    float y = hity - floor(hity + 0.5);         // they vary between -0.5 and +0.5 and one of them is close to 0
-    int tex = x * tex_walls.size;
-    if(std::abs(y) > std::abs(x))           // determine if we hit vert or horizontal wall
+    float x = hitx - floor(hitx + 0.5);         // we give the location in the 2d map of where the ray hits the wall
+    float y = hity - floor(hity + 0.5);         // we convert this to a value in the range [-0.5, 0.5] to know where in the wall texture the ray has hit
+    int tex = x * tex_walls.size;               // tells us what x coord we hit, gives us the column of the texture
+
+    if(std::abs(y) > std::abs(x))               // determine if we hit a vertical or a horizontal wall
         tex = y * tex_walls.size;
-    if(tex < 0)
+
+    if(tex < 0)                                 // make sure tex is always between 0 and tex_walls.size - 1
         tex += tex_walls.size;
+
     assert(tex >= 0 && tex < (int)tex_walls.size);
-    return tex;
-}
+
+    return tex;     // return the column in the texture that we hit
+}   
 
 void map_show_sprite(Sprite &sprite, FrameBuffer &fb, Map &map) {
     const size_t rect_w = fb.w / (map.w * 2);
@@ -83,8 +87,8 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
         for(size_t i = 0; i < map.w; ++i) {
             if(map.is_empty(i, j))              // if the space is blank, no texture
                 continue;
-            size_t rect_x = i * rect_w;         // scales coords to frame buffer
-            size_t rect_y = j * rect_h;         // ^
+            size_t rect_x = i * rect_w;         // scales the tile to up to what the frame buffer needs
+            size_t rect_y = j * rect_h;         // this tells us where in the frame buffer we put the texture color
             size_t texid = map.get(i, j);       // get the value of the map index
             assert(texid < tex_walls.count);    // make sure were not accessing an out of bounds texture
             fb.draw_rectangle(rect_x, rect_y, rect_w, rect_h, tex_walls.get(0, 0, texid));      // get the top left pixel of the texture
@@ -93,12 +97,23 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
 
     /* -------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
-    // raycasting loop
-    std::vector<float> depth_buffer(fb.w / 2, 1e3);
-    for(size_t i = 0; i < fb.w / 2; ++i) {              // draw the visibility cone and the 3d view
-        float angle = player.a - player.fov / 2 + player.fov * i / float(fb.w / 2);
-        for(float t = 0; t < 20; t += 0.01) {
-            float x = player.x + t * cos(angle);
+    /* 
+        This will handle the actual rendering. We do all of the calculations according to the top down map.
+        If a ray touches a wall/texture, we have to render the texture in the "3D world"
+        We want to send rays from the players left most view, to their right most view
+        <-(player.a - fov/2) ------------- player.a ------------- (player.a + fov/2)->
+        player.a - fov/2 = the left most ray
+        player.a + fov/2 = the right most ray
+        player.fov * i / (fb.w / 2) = the center ray
+    */
+    std::vector<float> depth_buffer(fb.w / 2, 1e3);     // will store the distance from the player to the first wall hit by the ith ray
+
+    for(size_t i = 0; i < fb.w / 2; ++i) {      // we pan across the view from left to right
+        float angle = (player.a - player.fov / 2) + (player.fov * i / float(fb.w / 2));     // (calculate the angle of the current ray in the frame
+                //  =           left ray          +             the ith ray
+
+        for(float t = 0; t < 20; t += 0.01) {    // the "distance" traveled along the ray
+            float x = player.x + t * cos(angle);        
             float y = player.y + t * sin(angle);
             fb.set_pixel(x * rect_w, y * rect_h, pack_color(160, 160, 160));        // draws the visibility cone
 
@@ -107,15 +122,29 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
 
             size_t texid = map.get(x, y);               // ray touches wayy so draw the vert column
             assert(texid < tex_walls.count);
-            float dist = t * cos(angle - player.a);
+            
+            /* 
+                t is the straight line distance from the player to the wall.
+                    if we use this to render the texture, well get a fisheye effect
+                the cos(difference) removes the fish eye
+                    we get the distance between the current ray and the players view direction
+
+            */
+            float dist = t * cos(angle - player.a);     
+            
             depth_buffer[i] = dist;
+            
             size_t column_height = fb.h / dist;
-            int x_texcoord = wall_x_texcoord(x, y, tex_walls);
-            std::vector<uint32_t> column = tex_walls.get_scaled_column(texid, x_texcoord, column_height);
+            
+            int x_texcoord = wall_x_texcoord(x, y, tex_walls);      // get the x coordinate of where the ray hit a texture
+            
+            std::vector<uint32_t> column = tex_walls.get_scaled_column(texid, x_texcoord, column_height);       
+
             int pix_x = i + fb.w / 2;
+
             for(size_t j = 0; j < column_height; ++j) {
-                int pix_y = j + fb.h / 2 - column_height / 2;
-                if(pix_y >= 0 & pix_y < (int)fb.h) {
+                int pix_y = j + fb.h / 2 - column_height / 2;       // get the y value from the center of the screen
+                if(pix_y >= 0 && pix_y < (int)fb.h) {
                     fb.set_pixel(pix_x, pix_y, column[j]);
                 }
             }
@@ -123,11 +152,11 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
         }   //ray marching loop
     }       // fov ray sweeping
 
-    for(size_t i = 0; i < sprites.size(); ++i) {    // update the distances from the player to each sprite
-        sprites[i].player_dist = std::sqrt(pow(player.x - sprites[i].x, 2) + pow(player.y - sprites[i].y, 2));
-    }
+    for(size_t i = 0; i < sprites.size(); ++i) {    // loop through all of the sprites
+        sprites[i].player_dist = std::sqrt(pow(player.x - sprites[i].x, 2) + pow(player.y - sprites[i].y, 2));      // since all the sprites have a distance of 0 from the player
+    }                                                                                                               // we update this by calculating the hypotenuse
 
-    std::sort(sprites.begin(), sprites.end());  // sort it from farthest to closest
+    std::sort(sprites.begin(), sprites.end());  // sort the list of sprites from closest to furthest
 
     for(size_t i = 0; i < sprites.size(); ++i) {    // draw the sprites
         map_show_sprite(sprites[i], fb, map);
@@ -141,7 +170,7 @@ int main() {
 
     FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};        // makes a frame buffer object with w, h, image of 1024*512 pixels, each of color white
     Player player {3.456, 2.345, 1.523, M_PI / 3.0};        // creates a player object x, y, view direction, fov
-    Map map;                                                // empty map object
+    Map map;                                                // map object
     Texture tex_walls("../textures/walltext.png");      // we create a texture object that holds all the pixel values and data about the texture png
     Texture tex_monst("../textures/monsters.png");      // we create a texture object that holds all the pixel values and data about the texture png
     if(!tex_walls.count || !tex_monst.count) {      // need both textures to load
