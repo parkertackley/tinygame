@@ -67,22 +67,32 @@ void draw_sprite(Sprite &sprite, std::vector<float> &depth_buffer, FrameBuffer &
 }
 
 void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &sprites, Texture &tex_walls, Texture &tex_monst) {
-    fb.clear(pack_color(255, 255, 255));
+    fb.clear(pack_color(255, 255, 255));    // clear the frame, fill with white
 
-    // draws map
-    const size_t rect_w = fb.w / (map.w * 2);
-    const size_t rect_h = fb.h / map.h;
+
+    /* 
+        This first block is only for the minimap on the left side of the screen.
+        Since the map is a 16x16 grid, we have to scale accordingly to fit the 1024x512 pixel screen.
+    */
+    // since the map is 16x16, we have to scale up the map. this finds out how many pixels each tile of the map has to be to fill up the frame buffer
+    const size_t rect_w = fb.w / (map.w * 2);       // 1024 / (16 * 2) = 32 pixels wide in the buffer (we multiply by 2 b/c the map will fill up half the frame buffer)
+    const size_t rect_h = fb.h / map.h;             // 512 / 16 = 32 pixels tall in the buffer
+
+    // loop through the map size and width O(n^2)
     for(size_t j = 0; j < map.h; ++j) {
         for(size_t i = 0; i < map.w; ++i) {
-            if(map.is_empty(i, j))
+            if(map.is_empty(i, j))              // if the space is blank, no texture
                 continue;
-            size_t rect_x = i * rect_w;
-            size_t rect_y = j * rect_h;
-            size_t texid = map.get(i, j);
-            assert(texid < tex_walls.count);
-            fb.draw_rectangle(rect_x, rect_y, rect_w, rect_h, tex_walls.get(0, 0, texid));
+            size_t rect_x = i * rect_w;         // scales coords to frame buffer
+            size_t rect_y = j * rect_h;         // ^
+            size_t texid = map.get(i, j);       // get the value of the map index
+            assert(texid < tex_walls.count);    // make sure were not accessing an out of bounds texture
+            fb.draw_rectangle(rect_x, rect_y, rect_w, rect_h, tex_walls.get(0, 0, texid));      // get the top left pixel of the texture
         }
     }
+
+    /* -------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
+
     // raycasting loop
     std::vector<float> depth_buffer(fb.w / 2, 1e3);
     for(size_t i = 0; i < fb.w / 2; ++i) {              // draw the visibility cone and the 3d view
@@ -129,19 +139,19 @@ void render(FrameBuffer &fb, Map &map, Player &player, std::vector<Sprite> &spri
 int main() {
     std::filesystem::create_directory("../frames");
 
-    FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};
-    Player player {3.456, 2.345, 1.523, M_PI / 3.0};
-    Map map;
-    Texture tex_walls("../textures/walltext.png");
-    Texture tex_monst("../textures/monsters.png");
-    if(!tex_walls.count || !tex_monst.count) {
+    FrameBuffer fb{1024, 512, std::vector<uint32_t>(1024 * 512, pack_color(255, 255, 255))};        // makes a frame buffer object with w, h, image of 1024*512 pixels, each of color white
+    Player player {3.456, 2.345, 1.523, M_PI / 3.0};        // creates a player object x, y, view direction, fov
+    Map map;                                                // empty map object
+    Texture tex_walls("../textures/walltext.png");      // we create a texture object that holds all the pixel values and data about the texture png
+    Texture tex_monst("../textures/monsters.png");      // we create a texture object that holds all the pixel values and data about the texture png
+    if(!tex_walls.count || !tex_monst.count) {      // need both textures to load
         std::cerr << "Failed to load textures!" << std::endl;
         return -1;
     }
 
-    std::vector<Sprite> sprites{{3.523, 3.812, 2, 0}, {1.834, 8.756, 2, 0}, {5.323, 5.365, 1, 0}, {4.123, 10.265, 1, 0}};
+    std::vector<Sprite> sprites{{3.523, 3.812, 2, 0}, {1.834, 8.756, 2, 0}, {5.323, 5.365, 1, 0}, {4.123, 10.265, 1, 0}};       // create vector of sprites. each include the x, y, texture id, player distance
 
-    render(fb, map, player, sprites, tex_walls, tex_monst);
+    render(fb, map, player, sprites, tex_walls, tex_monst);     // send frame buffer, map, player, sprites, and textures
     drop_ppm_image("../frames/out.ppm", fb.img, fb.w, fb.h);
 
     return 0;

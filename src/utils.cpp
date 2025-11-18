@@ -7,8 +7,8 @@
 #include "utils.h"
 
 uint32_t pack_color(const uint8_t r, const uint8_t g, const uint8_t b, const uint8_t a) {
-    return (a << 24) + (b << 16) + (g << 8) + r;
-}
+    return (a << 24) + (b << 16) + (g << 8) + r;        // returns 32 bits, 0000 0000 0000 0000 0000 0000 0000 0000
+}                                                       //                  aaaa aaaa bbbb bbbb gggg gggg rrrr rrrr
 
 void unpack_color(const uint32_t &color, uint8_t &r, uint8_t &g, uint8_t &b, uint8_t &a) {
     r = (color >> 0) & 255;

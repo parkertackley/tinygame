@@ -5,7 +5,7 @@
 
 struct Map {
     size_t w, h;        // map dimensions
-    Map();
+    Map();      // constructor
     int get(const size_t i, const size_t j);
     bool is_empty(const size_t, const size_t h);
 };

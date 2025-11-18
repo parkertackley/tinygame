@@ -11,12 +11,15 @@
 
 Texture::Texture(const std::string filename) : img_w(0), img_h(0), count(0), size(0), img() {
     int nchannels = -1, w, h;
-    unsigned char *pixmap = stbi_load(filename.c_str(), &w, &h, &nchannels, 0);
+
+    // an array where each of pixel takes up 4 bytes. pixmap[0-3] are the rgba values of pixel 0,0, pixmap[4-7] are pixel 0,1, etc.
+    unsigned char *pixmap = stbi_load(filename.c_str(), &w, &h, &nchannels, 0);     // 0 tells stbi_load to use howevery many channels are in the orininal image
     if(!pixmap) {
         std::cerr << "Error: can not load the textures!" << std::endl;
         return;
     }
 
+    // 4 channels = 32 bit image
     if(4 != nchannels) {
         std::cerr << "Error: the texture must be a 32 bit image!" << std::endl;
         stbi_image_free(pixmap);
@@ -29,12 +32,12 @@ Texture::Texture(const std::string filename) : img_w(0), img_h(0), count(0), siz
         return;
     }
 
-    count = w / h;
-    size = w / count;
-    img_w = w;
-    img_h = h;
+    count = w / h;      // # textures
+    size = w / count;   // size of each
+    img_w = w;      // width of the image
+    img_h = h;      // height of the image
 
-    img = std::vector<uint32_t>(w * h);
+    img = std::vector<uint32_t>(w * h);     // this will store all the pixels of the image, each pixel is 32 bits/8 bytes
     for(int j = 0; j < h; ++j) {
         for(int i = 0; i < w; ++i) {
             uint8_t r = pixmap[(i + j * w) * 4 + 0];
@@ -45,7 +48,7 @@ Texture::Texture(const std::string filename) : img_w(0), img_h(0), count(0), siz
         }
     }
 
-    stbi_image_free(pixmap);
+    stbi_image_free(pixmap);        // free the opened image
 
 }
 
